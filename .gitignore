@@ -1,0 +1,12 @@
+# Secrets: each app's .env holds client secrets and cookie keys. Never commit it.
+.env
+
+# Dependencies (npm install recreates them)
+node_modules/
+
+# macOS folder files
+.DS_Store
+
+# Not part of the project
+Claude outputs/
+studio/app.old.js

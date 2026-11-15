@@ -1,0 +1,16 @@
+{
+  "name": "payouts",
+  "version": "1.0.0",
+  "description": "Vermilion Payouts: the Sensitive App (step-up on Change payout account)",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "escape-html": "^1.0.3",
+    "express": "^4.22.3",
+    "express-openid-connect": "^2.20.2"
+  }
+}
