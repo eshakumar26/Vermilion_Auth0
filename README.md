@@ -220,3 +220,38 @@ My first full run of the test plan surfaced one real defect and about a dozen pr
 - **Field hints** on the change form: a 9-digit routing number and a 12-digit account number, matching what the server accepts.
 
 The defect itself: the payout hold was missing on my machine. The code was right, but an older copy of the file had been saved over it. Re-testing after restoring it passed.
+
+### For a production version
+
+**Security**
+- **Phishing-resistant step-up.** Offer security keys or device passkeys as MFA factors, and tie the payout hold to how strong the proof was.
+- **Real alerts.** Email the artist whenever their payout account changes, with a one-click "this wasn't me" path. Today, the note only appears on the dashboard.
+- **Require a verified email** before payout changes.
+- **Server-side sessions,** so logging out or revoking a session kills stolen cookies too. Today, each app's session lives in its own cookie, so a copied cookie works until it expires.
+- **Log out everywhere** from either app, through Auth0's back-channel logout or by chaining the two logouts.
+- **Self-service factor management behind step-up,** with alerts.
+- **Progressive enrollment back on,** to move password users toward passkeys.
+- **CSRF tokens on the forms,** as defense in depth. Today they rely on the session cookie's SameSite default.
+- **A per-device idle lock,** using a shared store instead of memory.
+- **Enforce "no email factor" in code,** not only in the dashboard.
+
+**Platform**
+- **A custom domain, set before passkeys,** since passkeys are tied to the login domain.
+- **Real `https` domains,** with `localhost` removed from both applications.
+- **The tenant as code** (Auth0 Deploy CLI or Terraform), with separate, deliberately named development, staging and production tenants.
+- **A paid plan with Pro MFA,** so authenticator-app step-up keeps working.
+- **A real database** for payout accounts, holds and verifications. Today they live in memory and reset on restart.
+- **Secrets in a secrets manager,** rotated regularly, with fresh cookie keys per environment.
+- **Auth0 logs streamed** to a monitoring tool, with alerts on payout changes and repeated step-up failures. The Free plan keeps logs only briefly.
+- **The Developer view removed.** It's a demo tool, and real artists don't need to see their own authentication details.
+- **Express 5, or Auth0's newer Express SDK** once it's generally available.
+
+**Product**
+- **Roles,** so studio assistants can upload art without touching payouts.
+- **International payouts** (IBAN and other formats) instead of US-only routing and account numbers.
+- **Metrics I'd track:**
+  - authenticator setup completion at sign-up (where artists drop off)
+  - step-up success and abandonment rates
+  - how often artists hit "contact support" for a missing authenticator
+  - how often a payout hold is disputed or reversed
+  - the share of artists using passkeys over time
