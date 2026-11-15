@@ -45,7 +45,7 @@ I turned on MFA for my own Auth0 dashboard account, using Auth0 Guardian, becaus
 The domain is on any application's Settings tab, under Domain. Mine is `dev-dbkz3kyytfvcym68.us.auth0.com`, and both apps use it as `ISSUER_BASE_URL=https://dev-dbkz3kyytfvcym68.us.auth0.com`.
 
 ### 2.5 Plan and trial
-There's nothing to set here. The tenant is on a Free plan with a 22-day trial of paid features. Passkeys and passwords are included in the Free plan. Authenticator-app codes for step-up are a paid MFA feature, which works during the trial.
+The tenant is on a Free plan with a 22-day trial of paid features. Passkeys and passwords are included in the Free plan. Authenticator-app codes for step-up are a paid MFA feature, which works during the trial.
 
 Before signing up, I checked whether the Free plan covers what the brief needs. The pricing table marks "Cross APP SSO" as not included on Free, while an Auth0 team answer in the community says SSO between two apps works on Free. The trial covered everything I needed either way.
 
@@ -85,7 +85,7 @@ Auth0's docs still say these settings are under Settings > Application URIs, but
 ### 3.3 Credentials
 On the application's Credentials tab, I set the Authentication Method to Client Secret (Post), and copied the Client Secret into that app's `.env` as `CLIENT_SECRET` (section 7). It is never committed or shown on screen.
 
-I switched both apps from the quickstart's default flow to the authorization code flow, with a client secret per app. The quickstart's flow over `http` only works if a login finishes within about 2 minutes, and a live sign-up with QR scanning, or a step-up during panel questions, could take longer. The code flow removes that limit and is the flow Auth0 recommends for regular web apps. The trade-off is that each app now has a client secret to protect. I chose this over running local `https` (certificates and new URLs everywhere) and over keeping the old flow and rehearsing fast logins.
+I switched both apps from the quickstart's default flow to the authorization code flow, with a client secret per app. The quickstart's flow over `http` only works if a login finishes within about 2 minutes, and a live sign-up with QR scanning, or a step-up, could take longer. The code flow removes that limit and is the flow Auth0 recommends for regular web apps. The trade-off is that each app now has a client secret to protect. I chose this over running local `https` (certificates and new URLs everywhere) and over keeping the old flow and rehearsing fast logins.
 
 The SDK warned at startup about the old flow over `http`, which is how I found the 2-minute limit. Without `CLIENT_SECRET` the app refuses to start, and if the method doesn't match what the app sends, login fails at `/callback` with 400 "Unauthorized".
 
