@@ -331,46 +331,39 @@ Every decision in section 4 cost something. This section shows what I gave up th
 
 ## 6. What I'd do differently
 
-### With more time
-- **Live tests for every state,** including logging out and a full stolen-cookie run in a second browser profile, plus the idle-lock tests.
-- **The automated tests in the repo, running on every change,** not just during development.
-- **The native app, external user store bonus**
-- **An account recovery flow** for artists whosign up with only a passkey and lose access to it.
-- **Self-service factor management:** letting artists add a passkey or remove a factor, behind its own step-up, with an email alert. Auth0's My Account API is designed for this.
+### With more time on this project
+
+| What I'd do | Why |
+|---|---|
+| **Run the remaining tests live:** logging out of each app, replaying Save after a change, Cancel on the form, the idle lock, and a full stolen-cookie run in a second browser profile | These states are built, but not all of them have been tested live yet (section 10). |
+| **Put the automated tests in the repo, and run them on every change** | I ran 79 automated tests during development, but reviewers can't run them, and nothing would catch a change that breaks something. |
+| **Attempt the bonus items:** the native app and the external user store | Section 8 explains how I'd approach each one. |
+| **Build account recovery for passkey-only artists** | Today, an artist who signed up with only a passkey and loses every device that holds it has no way back in. |
+| **Let artists manage their own sign-in methods:** add a passkey, or remove a factor, behind its own step-up and with an email alert | Today, artists can't change their sign-in methods after sign-up. This needs care, because an attacker with a stolen session could add their own passkey to keep a way in. Auth0's My Account API is designed for this. |
 
 ### For a production version
 
+If Vermilion went live with real artists and real money, these are the **first five things I'd do**:
+1. Email the artist whenever their payout account changes.
+2. Move sessions to the server, so logging out or revoking a session also kills stolen cookies.
+3. Store payout accounts, holds and verifications in a real database.
+4. Set up a custom domain and `https` before any real artist creates a passkey.
+5. Offer a phishing-resistant factor for step-up.
+
 **Security**
-- **Phishing-resistant step-up.** Offer security keys or device passkeys as MFA factors, and shorten the payout hold when step-up used one.
-- **Real alerts.** Email the artist whenever their payout account changes, with a one-click "this wasn't me" path. Today, the note only appears on the dashboard.
-- **Require a verified email** before payout changes.
-- **Server-side sessions,** so logging out or revoking a session kills stolen cookies too.
-- **Log out everywhere** from either app.
-- **Progressive enrollment back on,** to move password users toward passkeys.
-- **CSRF tokens on the forms,** as defense in depth. Today they rely on the session cookie's SameSite default.
-- **A per-device idle lock,** using a shared store instead of memory.
-- **Enforce "no email factor" in the Action,** not only in the dashboard.
 
-**Platform**
-- **A custom domain, set before passkeys,** since passkeys are tied to the login domain.
-- **Real `https` domains,** with `localhost` removed from both applications.
-- **The tenant as code** (Auth0 Deploy CLI or Terraform), with separate, deliberately named development, staging and production tenants.
-- **A paid plan with Pro MFA,** so authenticator-app step-up keeps working.
-- **A real database** for payout accounts, holds and verifications, which today live in memory.
-- **Secrets in a secrets manager,** rotated regularly, with fresh cookie keys per environment.
-- **Auth0 logs streamed** to a monitoring tool, with alerts on payout changes and repeated step-up failures.
-- **The Developer view removed.**
-- **Express 5, or Auth0's newer Express SDK** once it's generally available.
-
-**Product**
-- **Roles,** so studio assistants can upload art without touching payouts.
-- **International payouts** (IBAN and other formats).
-- **Metrics I'd track:**
-  - authenticator setup completion at sign-up
-  - step-up success and abandonment rates
-  - "contact support" hits for a missing authenticator
-  - payout holds disputed or reversed
-  - the share of artists using passkeys over time
+| Change | Why it matters |
+|---|---|
+| **Phishing-resistant step-up.** Offer security keys or device biometrics (WebAuthn) for step-up, and shorten the payout hold when the artist uses one | A 6-digit code can be relayed by a fake website in real time. These factors can't. |
+| **Email alerts on every payout account change,** with a one-click "This wasn't me" | Today, the "Not you?" warning only appears on the dashboard, which an attacker could see before the artist does. |
+| **A verified email required before payout changes** | Alerts are only useful if they reach the real artist. |
+| **Server-side sessions** | Today, each app's session lives in a cookie, so a copied cookie keeps working until it expires, even after the artist logs out. |
+| **Log out everywhere,** from either app | On a shared computer, logging out of one app leaves the other one viewable. |
+| **Step-up on other money-related changes:** the payout email, tax details, and revealing the full account number | They're as sensitive as the payout account itself. |
+| **Treat failed step-ups as a warning sign:** alert the artist, and end the session after repeated failures | Today, someone who fails the code stays logged in, and nobody is told. |
+| **CSRF tokens on the forms** | Today, the forms rely on the session cookie's SameSite setting, which already blocks most cross-site requests. Tokens add a second layer. |
+| **An idle lock per device, in a shared store** | Today's lock follows the artist rather than the device, and resets when Payouts restarts. |
+| **"No email factor" enforced in the Action too** | Today, it depends on a single dashboard
 
 ---
 
