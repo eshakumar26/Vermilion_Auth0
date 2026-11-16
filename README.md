@@ -249,7 +249,7 @@ Where the brief was open-ended, I had to make a choice. This section lists every
 | How do I stop the two apps' sessions colliding on `localhost`? | A different session cookie name per app · Different hostnames (`localhost` and `127.0.0.1`) | A different cookie name, and a different secret key, for each app | Browsers share cookies across ports on the same host, and the SDK gives every app the same cookie name by default, so the apps would overwrite each other. One setting per app fixes it. SSO comes from Auth0's session, not a shared cookie. | Two hostnames works, but means two addresses to remember and to register in Auth0. |
 | What do I build first? | Studio, the tenant settings and the Action first, then Payouts · Payouts first, then connect the two | Studio, end to end, first | The tenant settings and the Action are shared, so proving them on the simpler app meant any later bug was Payouts-only. It caught two serious issues before Payouts existed: the Action wasn't running, and artists could end up with no MFA. | Building Payouts first means two unknowns at once, so it's harder to tell what broke. |
 
-### 4.3 Logging in and SSO
+### 4.2 Logging in and SSO
 
 | Decision | Options I considered | What I chose | Why | Why not the others |
 |---|---|---|---|---|
@@ -261,7 +261,7 @@ Where the brief was open-ended, I had to make a choice. This section lists every
 | What should "Signed in as" show? | The full email · The part before the @ · A display name collected at sign-up | The part before the @ | It identifies the account with less personal data on screen, which matters when screen-sharing. Auth0 already provides it, and it's the same in both apps, which helps show SSO. | The full email shows more personal data than needed. A display name needs extra setup for a cosmetic gain. |
 | Should a verified email be required? | Block login until it's verified · Require it before payout changes · Keep Auth0's default (a link is sent, but login isn't blocked) | Auth0's default | The brief doesn't require it, and blocking would add a step to every sign-up in the demo. | It means email ownership isn't proven. In production, I'd require it before payout changes, because that's where "Not you?" alerts would go. |
 
-### 4.4 The MFA factor and setting it up
+### 4.3 The MFA factor and setting it up
 
 | Decision | Options I considered | What I chose | Why | Why not the others |
 |---|---|---|---|---|
@@ -269,7 +269,7 @@ Where the brief was open-ended, I had to make a choice. This section lists every
 | When do artists set up their authenticator, and what if they never did? | At sign-up, and block payout changes without one · Later, at their first payout change, after a fresh login · On the spot at step-up (Auth0's default) | At sign-up. Step-up never offers setup, and an account without an authenticator can't change payouts | Sign-up is the one moment we're sure it's really the artist. Offering setup at step-up would let an attacker with a stolen session scan the QR code with their own phone and pass (an "enrollment hijack"). | Setting up at the first payout change is strong, but harder to build correctly. Setup at step-up defeats step-up entirely. |
 | If an artist skips setup, when are they asked again? | On any login where they actually typed their password or used their passkey, until setup is done · Only on their first login | On every real login, until setup is done | Testing showed that an artist who closed the QR screen was never asked again, because Auth0 counted the abandoned login as their first. They'd then be blocked at Payouts with no way forward. | First login only strands artists. Asking on SSO visits too would let a cookie thief register their own phone. |
 
-### 4.5 Step-up on the payout change
+### 4.4 Step-up on the payout change
 
 | Decision | Options I considered | What I chose | Why | Why not the others |
 |---|---|---|---|---|
@@ -283,20 +283,13 @@ Where the brief was open-ended, I had to make a choice. This section lists every
 | What does the artist see when something goes wrong? | One error page for everything · A different outcome for each kind of failure | A different outcome for each: a failed login gets a public error page; a failed step-up keeps the artist logged in with "Verification wasn't completed"; an account with no authenticator is asked to contact support; an expired verification asks them to verify again | Each case needs a different next step. A step-up failure shouldn't look like being logged out, and "Try again" can't fix a missing authenticator. | One page for everything is confusing, and its Try again would loop forever for an artist with no authenticator. |
 | How do I stop money going straight to a changed account? | Lock further changes for a while · Pause payouts for 5 days after any change, and tell the artist · Leave it as a production idea | A 5-day payout hold, with a "Not you? Contact support" note, on weekly Monday payouts | If an attacker ever gets one change through, for example by phishing a code in real time, no money leaves before the artist notices, and the artist can still change the account back. Patreon uses the same 5-day hold. | A lock would stop the real artist from undoing an attacker's change. Leaving it out would drop the strongest part of the story. |
 
-### 4.6 Sessions and logging out
+### 4.5 Sessions and logging out
 
 | Decision | Options I considered | What I chose | Why | Why not the others |
 |---|---|---|---|---|
 | When the artist logs out of one app, what happens to the other? | End this app's session and Auth0's · Log out of both by chaining both apps' logout pages · Have Auth0 tell each app's server to end the session (back-channel logout) | End this app's session and Auth0's. The other app stays open until its own session ends | The brief doesn't ask for logging out everywhere, and this is the least code and the least likely to break live. With Auth0's session gone, neither app can log anyone back in silently, and payout changes still need step-up. | Chaining is more code, and more to break in a demo. Back-channel logout is an Enterprise feature and needs a public server address. |
 | Where does logging out of Payouts land? | Payouts' own signed-out page · Chain through Studio's logout · Studio's signed-out page (my original spec) | Payouts' own signed-out page | Studio keeps its own session, so landing on Studio's page would show "Signed in as…" right after clicking Log out. | Chaining has more moving parts. Studio's page would be confusing on screen. |
 | How long can Payouts sit idle? | Keep the defaults (sessions last a day or more) and rely on step-up · A 15-minute idle lock on Payouts only · Shorten Auth0's session and both apps' sessions | 15 minutes without activity, then the password or passkey again. Studio is unchanged | Testing showed both apps still logged in after an hour idle. Money already needs a fresh code, but an unattended laptop still showed earnings and the payout account. Shortening Payouts' session alone wouldn't work, because SSO would log the artist straight back in. So Payouts also checks when the artist last actually logged in, using a time signed by Auth0. | The defaults leave an idle Payouts open for hours. Shortening Auth0's session affects both apps, and an artist busy in Studio would be asked to log in when switching to Payouts. |
-
-### 4.7 Making it visible
-
-| Decision | Options I considered | What I chose | Why | Why not the others |
-|---|---|---|---|---|
-
-| How do I make SSO and step-up visible in the demo? | Nothing on screen, and explain it out loud · A Developer view in each app | A collapsible Developer view in each app, for the demo only | SSO and step-up are invisible by nature. The same "Logged in at" time in both apps proves no second login happened. | Without it, the panel would have to take my word for it. I'd remove it in production. |
 
 ---
 
