@@ -1,8 +1,7 @@
 # Vermilion
 
 Vermilion is an art marketplace for independent artists, made up of two web applications that share one Auth0 tenant: 
-**Vermilion Studio**
-**Vermilion Payouts**
+**Vermilion Studio,** **Vermilion Payouts**
 
 Picture a painter who sells her work through Vermilion. Most days, she's in Vermilion Studio. She signed up once, with a passkey or a password, and set up an authenticator app on her phone at the same time. Studio is where she shows her artworks and keeps an eye on recent sales: which piece sold, for how much, and when. Nothing in Studio moves money, so getting in is quick and nothing asks her for extra proof.
 
