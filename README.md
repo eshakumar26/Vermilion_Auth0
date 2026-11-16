@@ -1,19 +1,33 @@
 # Vermilion
 
-Vermilion is an art marketplace made up of two applications: **Studio**, where artists showcase their work, and **Payouts**, where they manage their earnings. Both run on one Auth0 tenant. An artist logs in once with a passkey or a password, moves between the apps without logging in again, and has to prove it's really them before changing where their money goes.
+# Vermilion
+
+Vermilion is an art marketplace for independent artists, made up of two web applications that share one Auth0 tenant: **Vermilion Studio** and **Vermilion Payouts**.
+
+Picture a painter who sells her work through Vermilion. Most days, she's in Vermilion Studio. She signed up once, with a passkey or a password, and set up an authenticator app on her phone at the same time. Studio is where she shows her artworks and keeps an eye on recent sales: which piece sold, for how much, and when. Nothing in Studio moves money, so getting in is quick and nothing asks her for extra proof.
+
+Every so often, she checks on her earnings. One click on Go to Payouts takes her to Vermilion Payouts without logging in again. There she sees her next payout, the date it's paid (payouts go out weekly), and the bank account it's going to, masked to the last four digits. Going back to Studio is just as seamless.
+
+The one thing that slows her down is the one thing that should: changing her payout account. It's exactly what someone holding her session would want to do, because her next payout would land with them. So before the change form even opens, Payouts asks for a fresh 6-digit code from her authenticator app, even though she's already logged in. Each code covers one change and lasts 10 minutes. After the change, her payouts pause for 5 days, so no money leaves before she'd notice a change she didn't make. And if she leaves Payouts idle for 15 minutes, it asks for her password or passkey again.
+
+For this demo, both apps also have a collapsible Developer view. It shows how she logged in, when, and where her step-up verification stands, so SSO and step-up can be seen on screen.
 
 **Quick links**
 - [Tenant setup guide](docs/tenant-setup.md): every Auth0 setting, step by step, and why
 - [The Auth0 Action](auth0/actions/vermilion-login-rules.js): all of the MFA logic
 
 **Contents**
-1. The problem, and why an art marketplace
-2. Users, assumptions and scope
-3. What I built
-4. Key decisions
-5. Trade-offs
-6. What I'd do differently
-7. How I used AI
+1. [The problem, and why an art marketplace](#1-the-problem-and-why-an-art-marketplace)
+2. [Users, assumptions and scope](#2-users-assumptions-and-scope)
+3. [What I built](#3-what-i-built)
+4. [Key decisions](#4-key-decisions)
+5. [Trade-offs](#5-trade-offs)
+6. [What I'd do differently](#6-what-id-do-differently)
+7. [How I used AI](#7-how-i-used-ai)
+8. [Bonus items](#8-bonus-items)
+9. [Run it locally](#9-run-it-locally)
+10. [Testing](#10-testing)
+11. [Repo layout](#11-repo-layout)
 
 ---
 
@@ -336,3 +350,24 @@ I used Claude Opus 5.5 throughout, and kept an AI usage log of what I asked, wha
 
 ### What I kept for myself
 Every decision in this README is mine: the scenario, the users, what to build and what to defer, and every trade-off. I verified Auth0 claims against the docs and my own dashboard, ran every test myself, and wrote my decision, friction and work logs. My rules for working with AI: ask for sources, check them, turn uncertainty into a test, never paste secrets, and log both what worked and what didn't.
+
+
+# 9. Run it locally
+
+Every Auth0 setting, and the full run steps, are in the [tenant setup guide](docs/tenant-setup.md#7-running-the-apps-locally). The short version, once the tenant is set up (Node 18 or newer):
+
+```bash
+cd studio && npm install      # then create .env from .env.example
+cd ../payouts && npm install  # then create .env from .env.example
+```
+
+Then start each app in its own Terminal window, and open http://localhost:3000:
+
+```bash
+cd studio && node app.js      # Vermilion Studio on http://localhost:3000
+cd payouts && node app.js     # Vermilion Payouts on http://localhost:3001
+```
+
+---
+
+
