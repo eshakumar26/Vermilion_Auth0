@@ -2,7 +2,9 @@
 
 # Vermilion
 
-Vermilion is an art marketplace for independent artists, made up of two web applications that share one Auth0 tenant: **Vermilion Studio** and **Vermilion Payouts**.
+Vermilion is an art marketplace for independent artists, made up of two web applications that share one Auth0 tenant: 
+**Vermilion Studio**
+**Vermilion Payouts**
 
 Picture a painter who sells her work through Vermilion. Most days, she's in Vermilion Studio. She signed up once, with a passkey or a password, and set up an authenticator app on her phone at the same time. Studio is where she shows her artworks and keeps an eye on recent sales: which piece sold, for how much, and when. Nothing in Studio moves money, so getting in is quick and nothing asks her for extra proof.
 
@@ -24,30 +26,44 @@ For this demo, both apps also have a collapsible Developer view. It shows how sh
 5. [Trade-offs](#5-trade-offs)
 6. [What I'd do differently](#6-what-id-do-differently)
 7. [How I used AI](#7-how-i-used-ai)
-8. [Bonus items](#8-bonus-items)
-9. [Run it locally](#9-run-it-locally)
-10. [Testing](#10-testing)
-11. [Repo layout](#11-repo-layout)
+8. [Run it locally](#9-run-it-locally)
+9. [Testing](#10-testing)
+10. [Repo layout](#11-repo-layout)
 
 ---
-
 ## 1. The problem, and why an art marketplace
 
-### The problem
-On creator platforms, account takeovers often don't steal money directly. Attackers redirect payouts: they change the payout bank account so the next payout lands with them, usually by riding a session the artist is already logged into (for example, cookies copied by malware). The change itself moves no money, so nobody notices until payday. Platforms treat this as high-risk.
+### The problem: payout redirection
+When attackers take over an account on a platform that pays people, they often don't try to move money out. They change where the money goes. They swap the payout bank account for their own, and the platform sends the next payout to them. Nothing looks wrong at the moment of the change, because no money moves. The artist finds out on payday, when the money doesn't arrive.
+
+### How common it is
+- **It's a known pattern in payroll.** The FBI has warned that criminals use stolen employee logins to get into payroll accounts, swap the direct deposit for an account they control, and even set up rules so the employee doesn't see the change alerts. It asks companies to take a closer look at any direct deposit change. A creator's payout account is the same target under a different name.
+- **Creators are targeted specifically, through stolen sessions.** In 2021, Google's Threat Analysis Group reported a campaign, running since 2019, that infected YouTube creators with malware to steal their browser cookies and take over their channels. Google restored about 4,000 accounts. It also noted that this technique may be making a comeback because more people use MFA: a stolen session skips the login, so it skips MFA too.
+- **Session theft is growing.** Recorded Future found that 276 million stolen credentials it indexed in 2025 came with active session cookies, almost a third of everything stolen by malware. 
+- **Marketplaces see it.** Etsy's seller forums have threads from sellers whose payout bank details were swapped by someone who got into their account.
+- **Platforms already treat it as high-risk.** Patreon automatically locks payouts for 5 days whenever a creator adds or changes a payout method.
+- **The money at stake is growing.** Goldman Sachs expects the creator economy to roughly double to $480 billion by 2027, with platform payouts among the main drivers.
+
+### Why it's worth solving
+Asking for MFA at login doesn't stop this attack, because a stolen session has already passed the login. The protection has to sit at the moment of the change: fresh proof from the artist, checked by the server, and a safety net (a payout hold) in case something still gets through. That's exactly what the brief asks for: step-up on a sensitive operation, even with an active session. In this scenario, the threat explains every design decision I made.
 
 The product question I designed around: **how do we keep everyday work frictionless, while making sure a stolen session alone can never redirect an artist's money?**
 
-### Why an art marketplace
-The brief asked for a Baseline App and a Sensitive App sharing one login, with one operation that requires step-up. I wanted a scenario where the two apps genuinely differ in risk, and where the sensitive operation is a real attack pattern.
+### The scenarios I considered
+The brief needed two apps sharing one login: a low-risk Baseline App and a Sensitive App with one operation that requires step-up.
 
-| Scenario | Sensitive operation | Why I didn't pick it |
-|---|---|---|
-| Bank | Send money to a new payee | The clearest risk, but the default choice, and it only covers money movement |
-| Airline loyalty / gaming | Transfer miles / trade a rare item | The risk is less clear-cut and can feel trivial |
-| Software company | Change MFA settings | A whole separate security app doesn't fit the two-app structure naturally |
-| **Creator marketplace** | **Change the payout bank account** | **Picked** |
+| Scenario | Baseline App | Sensitive App | Sensitive operation | Why I didn't pick it |
+|---|---|---|---|---|
+| Bank | Account overview | Payments | Add a new payee and send money | The obvious example, and nothing in a bank is truly low-risk: balances and transactions are sensitive too. A frictionless "baseline" app would be hard to justify |
+| Airline loyalty | Book and manage trips | Miles wallet | Transfer miles to another member | Real fraud, but miles feel like a perk, not someone's income, so the harm is harder to feel |
+| **Art marketplace** | **Studio: artworks and sales** | **Payouts: earnings** | **Change the payout bank account** | **Picked** |
 
+### Why I chose the art marketplace
+1. **The threat is real, current and documented.** Payout redirection happens to payroll accounts, creators and marketplace sellers.
+2. **It's exactly the brief's hard case.** The attacker already has a session. MFA at login wouldn't stop them; step-up at the moment of the change does. The scenario makes "step-up even with an active session" necessary, not decorative.
+3. **The two apps genuinely differ in risk.** Making art and getting paid are different jobs. Studio holds nothing that moves money, so it can stay frictionless. Payouts holds one dangerous action, so the extra proof goes there and nowhere else. A bank can't make that split honestly.
+4. **There's a real benchmark to design against.** Patreon's 5-day payout lock is a proven mitigation, so I adopted it (the payout hold) rather than inventing my own.
+   
 ---
 
 ## 2. Users, assumptions and scope
