@@ -295,28 +295,37 @@ Where the brief was open-ended, I had to make a choice. This section lists every
 
 ## 5. Trade-offs
 
-| Decision | What I gave up | Why that was acceptable |
-|---|---|---|
-| Regular Web Applications | A modern single-page feel, and showing token checks at an API | Step-up can't be bypassed from the browser, and there are fewer moving parts |
-| Stable Express SDK over the beta | The newest SDK | Reliability for a live demo |
-| Express 4 | The current major version | One less unknown while building auth flows; still supported |
-| Authorization code flow | A client secret per app to protect | It removes the 2-minute login limit, and it's Auth0's recommended flow |
-| Google login off | One-click social login | The brief asks for a password or passkey |
-| Progressive enrollment off | Nudging password users toward passkeys | Fewer screens in the core flows; I'd turn it back on later |
-| No MFA at login | A stolen password exposes sales and earnings (view only) | Money sits behind step-up; viewing is low-sensitivity |
-| Authenticator-app codes | Phishing resistance | Reliable, no hardware needed, and the payout hold contains real-time phishing |
-| MFA setup at sign-up | An extra 30 to 60 seconds at sign-up; old accounts without a factor need support | It closes the enrollment hijack |
-| A fresh, single-use code per change | A code for every change, and again after an accidental Cancel | Payout changes are rare |
-| Staying logged in after a failed code | An attacker who fails also stays logged in | They still can't change anything |
-| 5-day payout hold | The artist waits longer for the next payout after a change | No money leaves before the artist can notice and react |
-| Logout ends this app and Auth0 only | The other app stays viewable on a shared computer | A payout change there still needs a full login plus the code |
-| 15-minute idle lock on Payouts | It can look like SSO broke; it's per artist, not per device, and kept in memory | The sensitive app should be stricter than the baseline app |
-| Passkey recovery left to built-in options | A passkey-only artist who loses access has no designed recovery | Synced passkeys and "use a phone" cover most cases |
-| Email verification at the default | Email ownership isn't proven | Not required by the brief; I'd require it in production |
-| "No email" enforced by a setting | The rule lives in the dashboard, not in code | Documented; I'd enforce it in the Action in production |
-| Developer view | Authentication details shown on screen | Demo only; it would be removed in production |
-| Written tenant guide | It can drift from the live tenant | Readable, and it explains why; I'd manage the tenant as code in production |
-| Auto-assigned tenant name | A random-looking domain in login URLs | Cosmetic only; a production tenant gets a deliberate name |
+Every decision in section 4 cost something. This section shows what I gave up that would have added real value, why I accepted that, and what would make me choose differently.
+
+### Product and security trade-offs
+
+| What I chose | What I gave up, and the value it would have added | Why I gave it up | What would change my mind |
+|---|---|---|---|
+| **Authenticator-app codes for step-up** | **Phishing resistance.** A security key or a passkey-based factor can't be relayed by a fake website. A 6-digit code can: an attacker running a convincing fake page could pass the code on in real time and pass step-up. | Security keys need hardware every artist would have to buy. A device fingerprint is the same laptop and finger a passkey user just logged in with, so it isn't real extra proof. Codes work for every artist, offline, after one QR scan. And the 5-day payout hold limits the damage if a code is ever phished. | Security keys being practical for artists, or the product putting phishing resistance ahead of reach. I'd start by offering them to high-earning artists. |
+| **No MFA when logging in to either app** | **An extra barrier against stolen passwords.** With only an artist's password, someone can see their artworks, sales and earnings. | Seeing isn't moving money, and every payout change needs step-up anyway. MFA at login also wouldn't stop the main threat, a stolen session, and in Payouts it would break SSO. | Either app showing sensitive data the moment you open it (full account numbers, tax details), or a regulation requiring MFA at login. |
+| **A fresh, single-use code for every payout change** | **Convenience.** An artist who spots a typo right after saving, or who cancels by mistake, has to get another code. | Payout changes are rare, and single-use means a stolen session never finds a ready-to-use verification waiting in it. | Data showing artists often make several changes in a row, or cancel and come straight back. |
+| **Passkey users step up with a code too** | **A smoother experience for my most secure artists.** They logged in with a phishing-resistant passkey, and still have to type a code. | A passkey protects the login, not the session cookie afterwards. Auth0 doesn't treat a passkey as a separate MFA factor, and asking for the passkey again would be the same laptop and fingerprint. | An option to accept a fresh passkey check as step-up. I'd raise this as a product idea. |
+| **Setting up the authenticator at sign-up** | **A shorter sign-up.** It adds about 30 to 60 seconds (scan a QR code, type a code), and some artists may give up. An older account without an authenticator has no self-service way to add one. | Sign-up is the one moment we know it's really the artist. Setting up later, during step-up, would let an attacker with a stolen session register their own phone. | Data showing the extra step hurts sign-up completion. Then I'd move setup to the first payout change, after a fresh login. |
+| **A 5-day payout hold after any change** | **Fast access to money.** After every change, including legitimate ones, the artist waits up to 5 extra days to be paid. | If an attacker ever gets one change through, no money leaves before the artist notices, and they can change the account back. Patreon makes the same trade. | Data showing legitimate artists often change accounts and need money quickly. Then I'd use a shorter hold for long-standing accounts, or when step-up used a phishing-resistant factor. |
+| **Staying logged in after a failed code** | **Throwing out a possible attacker.** Someone riding a stolen session who fails the code also stays logged in. | Failures are usually the real artist's typos, and an attacker still can't change anything without the code. | Repeated failures on one session that look like an attack. Then I'd end the session after a few failures and alert the artist. |
+| **Logging out ends that app's session and Auth0's** | **"Log out once, out everywhere."** On a shared computer, the other app stays viewable until its own session ends. | The brief doesn't ask for it, and this is the simplest option and the least likely to break live. Changing the payout account from the other app still needs a full login plus a code. Back-channel logout is an Enterprise feature. | "Log out everywhere" becoming a requirement. |
+| **A 15-minute idle lock on Payouts** | **Perfectly seamless SSO.** An artist who comes back to an idle Payouts from Studio sees a login screen, which can look like SSO broke. The lock follows the artist, not the device, and Studio stays open on an unattended computer. | The app that controls money should be stricter than the one that shows artworks. Moving between the apps still works exactly as the brief describes. | Artists finding it annoying (then 30 minutes), or a need to lock each device separately. |
+| **Passkey recovery left to built-in options** | **A guaranteed way back in.** An artist who signed up with only a passkey, and loses every device that holds it, has no designed recovery path. | Synced passkeys and "use a phone" cover most cases, the brief doesn't ask for recovery, and a recovery flow is easy to get wrong in a rush. | Nothing needs to change my mind: it's the first thing I'd build for production. |
+| **Not offering passkeys after password logins** | **Moving more artists to passkeys over time.** Password users are never prompted to add one, so fewer switch to the stronger option. | The prompt adds a screen to every password login, which got in the way of proving SSO and step-up. | I'd turn it on in production. |
+| **Email verification left at Auth0's default** | **Proof that the artist owns their email address.** | The brief doesn't require it, and blocking login until it's verified adds a step to every demo sign-up. | In production, I'd require it before payout changes, because that's where "Not you?" alerts go. |
+| **Google login turned off** | **One-click sign-up,** which many artists would prefer. | The brief asks for a password or a passkey, and on a new tenant Google login runs on Auth0's test-only keys. | A product reason to offer social login, using Vermilion's own Google keys. |
+
+### Build and demo trade-offs
+
+| What I chose | What I gave up, and the value it would have added | Why I gave it up | What would change my mind |
+|---|---|---|---|
+| **Regular web apps** | **A modern single-page experience** (pages reload fully), and a chance to show access tokens being checked at a separate API, a common real-world pattern. | The server enforces step-up, so nothing in the browser can skip it, and there are fewer moving parts. Visual polish isn't what this exercise tests. | The apps needing to call APIs from the browser or a mobile app. |
+| **Auth0's stable Express SDK, not the beta** | **The newest SDK,** which is set to replace the current one. | A beta carries more risk of surprises in a live demo. | The new SDK becoming generally available. |
+| **Data kept in memory** | **Durability.** Payout accounts, holds, verifications and the idle-lock record reset whenever Payouts restarts, and only one server can run it. | A database adds setup without proving anything the brief asks about. | Production: a real database, and a shared session store. |
+| **"No email factor" enforced by a tenant setting** | **A rule in code.** If someone turned Email back on in the dashboard, step-up could offer it. | One documented setting was enough for a demo with one tenant. | Production: I'd also restrict the Action to the authenticator code, and manage the tenant as code. |
+| **A Developer view on screen** | **Data minimization.** The page shows how and when the artist logged in. | It's the only way to show SSO and step-up on screen in a demo. | It comes out in production. |
+| **A written tenant guide** | **A setup anyone can recreate with one command, and protection against drift.** My repo copy of the Action did fall behind once. | A guide explains why each setting is there, and reviewers don't need to install anything to read it. | Production: the tenant managed as code. |
+| **The auto-assigned tenant name** | **A clean, recognizable domain** in login URLs. | It's cosmetic only, and nothing depends on it. | Production, or needing several tenants that are easy to tell apart. |
 
 ---
 
