@@ -1,7 +1,5 @@
 # Vermilion
 
-# Vermilion
-
 Vermilion is an art marketplace for independent artists, made up of two web applications that share one Auth0 tenant: 
 **Vermilion Studio**
 **Vermilion Payouts**
