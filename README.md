@@ -24,9 +24,7 @@ For this demo, both apps also have a collapsible Developer view. It shows how sh
 5. [Trade-offs](#5-trade-offs)
 6. [What I'd do differently](#6-what-id-do-differently)
 7. [How I used AI](#7-how-i-used-ai)
-8. [Run it locally](#9-run-it-locally)
-9. [Testing](#10-testing)
-10. [Repo layout](#11-repo-layout)
+
 
 ---
 ## 1. The problem, and why an art marketplace
@@ -335,9 +333,8 @@ Every decision in section 4 cost something. This section shows what I gave up th
 
 | What I'd do | Why |
 |---|---|
-| **Run the remaining tests live:** logging out of each app, replaying Save after a change, Cancel on the form, the idle lock, and a full stolen-cookie run in a second browser profile | These states are built, but not all of them have been tested live yet (section 10). |
-| **Put the automated tests in the repo, and run them on every change** | I ran 79 automated tests during development, but reviewers can't run them, and nothing would catch a change that breaks something. |
-| **Attempt the bonus items:** the native app and the external user store | Section 8 explains how I'd approach each one. |
+| **Run the remaining tests live:** logging out of each app, replaying Save after a change, Cancel on the form, the idle lock, and a full stolen-cookie run in a second browser profile |
+| **Attempt the bonus items:** the native app and the external user store |
 | **Build account recovery for passkey-only artists** | Today, an artist who signed up with only a passkey and loses every device that holds it has no way back in. |
 | **Let artists manage their own sign-in methods:** add a passkey, or remove a factor, behind its own step-up and with an email alert | Today, artists can't change their sign-in methods after sign-up. This needs care, because an attacker with a stolen session could add their own passkey to keep a way in. Auth0's My Account API is designed for this. |
 
@@ -354,51 +351,45 @@ If Vermilion went live with real artists and real money, these are the **first f
 
 | Change | Why it matters |
 |---|---|
-| **Phishing-resistant step-up.** Offer security keys or device biometrics (WebAuthn) for step-up, and shorten the payout hold when the artist uses one | A 6-digit code can be relayed by a fake website in real time. These factors can't. |
+| **Phishing-resistant step-up.** Offer security keys or device biometrics for step-up, and shorten the payout hold when the artist uses one | A 6-digit code can be relayed by a fake website in real time. These factors can't. |
 | **Email alerts on every payout account change,** with a one-click "This wasn't me" | Today, the "Not you?" warning only appears on the dashboard, which an attacker could see before the artist does. |
 | **A verified email required before payout changes** | Alerts are only useful if they reach the real artist. |
 | **Server-side sessions** | Today, each app's session lives in a cookie, so a copied cookie keeps working until it expires, even after the artist logs out. |
-| **Log out everywhere,** from either app | On a shared computer, logging out of one app leaves the other one viewable. |
 | **Step-up on other money-related changes:** the payout email, tax details, and revealing the full account number | They're as sensitive as the payout account itself. |
 | **Treat failed step-ups as a warning sign:** alert the artist, and end the session after repeated failures | Today, someone who fails the code stays logged in, and nobody is told. |
-| **CSRF tokens on the forms** | Today, the forms rely on the session cookie's SameSite setting, which already blocks most cross-site requests. Tokens add a second layer. |
 | **An idle lock per device, in a shared store** | Today's lock follows the artist rather than the device, and resets when Payouts restarts. |
-| **"No email factor" enforced in the Action too** | Today, it depends on a single dashboard
 
 ---
 
 ## 7. How I used AI
 
-I used Claude Opus 5.5 throughout, and kept an AI usage log of what I asked, what I got back, whether it was right, and how I checked.
+I used Claude as a working partner for research, design reviews, code, tests and refining some write-ups. I kept an AI usage log of: what I asked, what I got back, whether it was right, and how I checked. My pattern was simple: Claude produces a first version fast, and I check it against a source, my spec, or a live test.
 
 ### Where I used it
-- **Research:** pricing and plan limits, Auth0 docs, and community answers. I always asked for the source, and checked who actually said it.
-- **Design:** challenging my user states, journeys and UI spec, and arguing the other side of my decisions.
-- **Code:** Claude wrote most of the application code and the Action from my specs and decisions. I went through it block by block, ran it, and tested every flow live.
-- **Testing:** simulated logins for the Action before deploying it, automated tests for Payouts, and a written 45-case test plan that I ran myself.
-- **Debugging:** diagnosing problems from my screenshots and error messages.
 
+| Area | What Claude did | What I did |
+|---|---|---|
+| **Research** | Searched Auth0's docs, pricing page, community threads and the SDK's source code, always with links | Opened the sources, checked their dates and who actually wrote them |
+| **Design** | Challenged my design and ideas. |
+| **Code** | Wrote most of the application code and the Action, from my spec and decisions | 
+| **Debugging** | Diagnosed problems from my error messages, often by comparing the files on my Mac with its own copy | Confirmed every fix with a live re-test |
+| **Writing** | Helped refine language for my README document as well the tenant configuration file. |
 
 ### What I kept for myself
-Every decision in this README is mine: the scenario, the users, what to build and what to defer, and every trade-off. I verified Auth0 claims against the docs and my own dashboard, ran every test myself, and wrote my decision, friction and work logs. My rules for working with AI: ask for sources, check them, turn uncertainty into a test, never paste secrets, and log both what worked and what didn't.
+- **Every decision.** The scenario, the users, what to build and what to defer, and every trade-off in this README.
+- **Building and running test cases**
+- **Verification.** I checked Auth0 claims against the docs and my own dashboard, ran the manual test plan, and recorded the results myself.
+- **The logs.** I kept my decision and work logs. Claude kept the AI usage logs as we worked, and I reviewed them.
 
-
-# 9. Run it locally
-
-Every Auth0 setting, and the full run steps, are in the [tenant setup guide](docs/tenant-setup.md#7-running-the-apps-locally). The short version, once the tenant is set up (Node 18 or newer):
-
-```bash
-cd studio && npm install      # then create .env from .env.example
-cd ../payouts && npm install  # then create .env from .env.example
-```
-
-Then start each app in its own Terminal window, and open http://localhost:3000:
-
-```bash
-cd studio && node app.js      # Vermilion Studio on http://localhost:3000
-cd payouts && node app.js     # Vermilion Payouts on http://localhost:3001
-```
+### My rules for working with AI
+- Ask where a claim comes from, and check who actually said it.
+- Check AI output against the brief and my locked spec.
+- When the docs don't say, turn the question into a test.
+- Check the real file before trusting that a change landed.
+- Never paste secrets into a chat or a screenshot.
+- Log what went wrong, not just what went right.
 
 ---
+
 
 
