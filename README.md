@@ -5,7 +5,6 @@ Vermilion is an art marketplace made up of two applications: **Studio**, where a
 **Quick links**
 - [Tenant setup guide](docs/tenant-setup.md): every Auth0 setting, step by step, and why
 - [The Auth0 Action](auth0/actions/vermilion-login-rules.js): all of the MFA logic
-- [Running the apps locally](docs/tenant-setup.md#7-running-the-apps-locally)
 
 **Contents**
 1. The problem, and why an art marketplace
@@ -21,7 +20,7 @@ Vermilion is an art marketplace made up of two applications: **Studio**, where a
 ## 1. The problem, and why an art marketplace
 
 ### The problem
-On creator platforms, account takeovers often don't steal money directly. Attackers redirect payouts: they change the payout bank account so the next payout lands with them, usually by riding a session the artist is already logged into (for example, cookies copied by malware). The change itself moves no money, so nobody notices until payday. Platforms treat this as high-risk; Patreon, for example, holds payouts for 5 days after payout details change.
+On creator platforms, account takeovers often don't steal money directly. Attackers redirect payouts: they change the payout bank account so the next payout lands with them, usually by riding a session the artist is already logged into (for example, cookies copied by malware). The change itself moves no money, so nobody notices until payday. Platforms treat this as high-risk.
 
 The product question I designed around: **how do we keep everyday work frictionless, while making sure a stolen session alone can never redirect an artist's money?**
 
@@ -31,7 +30,6 @@ The brief asked for a Baseline App and a Sensitive App sharing one login, with o
 | Scenario | Sensitive operation | Why I didn't pick it |
 |---|---|---|
 | Bank | Send money to a new payee | The clearest risk, but the default choice, and it only covers money movement |
-| Smart home | Unlock a door remotely | Vivid, but a separate locks app is less standard, and the risk is physical rather than account-based |
 | Airline loyalty / gaming | Transfer miles / trade a rare item | The risk is less clear-cut and can feel trivial |
 | Software company | Change MFA settings | A whole separate security app doesn't fit the two-app structure naturally |
 | **Creator marketplace** | **Change the payout bank account** | **Picked** |
@@ -43,13 +41,13 @@ The brief asked for a Baseline App and a Sensitive App sharing one login, with o
 ### Users
 I used one rule to decide who's in scope: **a user type earns a spot only if it changes the authentication design the brief asks for.**
 
-**Primary user: the artist.** They sign up on their own (B2C), spend most of their time in Studio managing artworks and sales, and occasionally visit Payouts. Their needs pull in two directions: everyday work should be fast, with one login across both apps, while their money should be hard to touch for anyone but them. They're the only person who goes through every flow in the brief: login, SSO and step-up.
+**Primary user: the artist.** They sign up on their own, spend most of their time in Studio managing artworks and sales, and occasionally visit Payouts. Their needs pull in two directions: everyday work should be fast, with one login across both apps, while their money should be hard to touch for anyone but them. They're the only person who goes through every flow in the brief: login, SSO and step-up.
 
 **Anti-persona: an attacker holding the artist's session.** They have stolen cookies, and possibly the artist's password, phished or reused from another site. They can browse anything the artist can. Their goal is to change the payout account.
 
 **Out of scope:**
 - **Buyers and collectors** use a storefront, not Studio or Payouts.
-- **Studio assistants** would upload art without touching payouts. That's a roles-and-permissions problem (authorization, not authentication), and Role Management isn't on the Free plan.
+- **Studio assistants** would upload art without touching payouts. That's a roles-and-permissions problem (authorization, not authentication)
 - **Vermilion staff** would need a separate admin app with a stricter login.
 
 ### Assumptions
@@ -60,7 +58,7 @@ I used one rule to decide who's in scope: **a user type earns a spot only if it 
 5. **Artists have a smartphone** and can use an authenticator app.
 6. **Sign-up is the one moment we're sure it's really the artist,** because they just created their credentials.
 7. **Some artists' devices can't use passkeys,** so passwords stay available.
-8. **Payouts go out weekly, on Mondays.**
+8. **Payouts go out weekly.**
 9. **This is a demo environment:** `localhost`, test accounts, and a free Auth0 tenant on its trial.
 
 ### Goals
@@ -92,7 +90,7 @@ I used one rule to decide who's in scope: **a user type earns a spot only if it 
 | **Vermilion Payouts** | Express app, `localhost:3001` | Sensitive App: earnings, payout account, step-up on change |
 | **Auth0 tenant** | Universal Login; one database connection with passkeys and passwords; authenticator-app MFA | Identity for both apps, and the SSO session between them |
 | **Login rules (Auth0 Action)** | One post-login Action | Every MFA decision, in one place |
-| **Testing** | A 45-case manual test plan; 79 automated tests for Payouts and 12 simulated logins for the Action, run during development | Evidence that the flows, and the attacks on them, behave as designed |
+| **Testing** | A 45-case manual test plan; run during development | Evidence that the flows, and the attacks on them, behave as designed |
 
 ### How I worked
 I treated this like a small product build rather than a coding exercise:
@@ -102,12 +100,12 @@ I treated this like a small product build rather than a coding exercise:
 4. **Journeys:** what happens, screen by screen, in each state that matters.
 5. **UI spec:** what each screen shows, locked before writing code.
 6. **Build:** Studio first, then Payouts.
-7. **Test:** a 45-case test plan, then fixes for what testing found.
+7. **Test:** A test plan, then fixes for what testing found.
 
 Throughout, I kept four logs: a **work log** (every step), a **decision log** (each decision with the options, the trade-off, and what would change my mind), a **friction log** (everywhere Auth0 or its docs slowed me down), and an **AI usage log** (what I asked, what I got, and whether it was right).
 
 ### User states
-I started by mapping 25 states across five groups: logging into Studio, getting into Payouts, using the sensitive action, leaving, and attacking. I gave each a priority, then refined the list into **18 states** to design in detail: some merged, and I added one attacker who skips the UI entirely. 16 of them are built into the apps; 2 were inputs to decisions rather than features.
+I started by mapping 25 states across five groups: logging into Studio, getting into Payouts, using the sensitive action, leaving, and attacking. I gave each a priority, then refined the list into **18 states** to design in detail. 16 of them are built into the apps; 2 were inputs to decisions rather than features.
 
 | # | State | What happens |
 |---|---|---|
@@ -189,7 +187,6 @@ My first full run of the test plan surfaced one real defect and about a dozen pr
 - **A 15-minute idle lock on Payouts.** Both apps were still logged in after an hour of no activity. Payouts now asks for a password or passkey again after 15 minutes, in a way SSO can't quietly bypass. Studio is unchanged.
 - **The verification's lifecycle in the Developer view:** when it was used for a change, or thrown away by Cancel, not just "not done yet".
 - **A note in the step-up dialog** pointing to the browser's Back button, because Auth0's code screen has no Cancel link.
-- **Field hints** on the change form: a 9-digit routing number and a 12-digit account number, matching what the server accepts.
 
 The defect itself: the payout hold was missing on my machine. The code was right, but an older copy of the file had been saved over it. Re-testing after restoring it passed.
 
@@ -257,7 +254,6 @@ Where the brief was open-ended, this is what I chose and why. The full reasoning
 
 | Decision | What I gave up | Why that was acceptable |
 |---|---|---|
-| Creator marketplace over a bank | A scenario that explains itself, with immediate harm | One sentence of setup; the delayed harm is exactly what makes it dangerous |
 | Regular Web Applications | A modern single-page feel, and showing token checks at an API | Step-up can't be bypassed from the browser, and there are fewer moving parts |
 | Stable Express SDK over the beta | The newest SDK | Reliability for a live demo |
 | Express 4 | The current major version | One less unknown while building auth flows; still supported |
@@ -286,8 +282,8 @@ Where the brief was open-ended, this is what I chose and why. The full reasoning
 ### With more time
 - **Live tests for every state,** including logging out and a full stolen-cookie run in a second browser profile, plus the idle-lock tests.
 - **The automated tests in the repo, running on every change,** not just during development.
-- **The external user store bonus:** a custom database connection with import off, and Auth0's Early Access option for passkeys with an external store.
-- **An account recovery flow** for artists who sign up with only a passkey and lose access to it.
+- **The native app, external user store bonus**
+- **An account recovery flow** for artists whosign up with only a passkey and lose access to it.
 - **Self-service factor management:** letting artists add a passkey or remove a factor, behind its own step-up, with an email alert. Auth0's My Account API is designed for this.
 
 ### For a production version
@@ -328,7 +324,7 @@ Where the brief was open-ended, this is what I chose and why. The full reasoning
 
 ## 7. How I used AI
 
-I used Claude throughout, and kept an AI usage log of what I asked, what I got back, whether it was right, and how I checked.
+I used Claude Opus 5.5 throughout, and kept an AI usage log of what I asked, what I got back, whether it was right, and how I checked.
 
 ### Where I used it
 - **Research:** pricing and plan limits, Auth0 docs, and community answers. I always asked for the source, and checked who actually said it.
@@ -336,26 +332,7 @@ I used Claude throughout, and kept an AI usage log of what I asked, what I got b
 - **Code:** Claude wrote most of the application code and the Action from my specs and decisions. I went through it block by block, ran it, and tested every flow live.
 - **Testing:** simulated logins for the Action before deploying it, automated tests for Payouts, and a written 45-case test plan that I ran myself.
 - **Debugging:** diagnosing problems from my screenshots and error messages.
-- **Writing:** drafting the tenant guide and this README from my own logs, which I then reworked in my own voice.
 
-### Where it helped most
-- **It predicted problems before I hit them:** the quickstart crash from a missing library, and the warning about the 2-minute login limit.
-- **It caught that my first test login went through Google,** not a password, from the user ID.
-- **It reviewed my Payouts spec before any code existed** and found five inconsistencies.
-- **It diagnosed problems from one screenshot:** the Action that was deployed but never running.
-- **It pointed out that shortening Payouts' session alone wouldn't create an idle lock,** because SSO would log the artist straight back in.
-- **It found file problems instead of re-checking its own code:** when a feature was "missing", the copy on my machine was out of date. When I copied the deployed Action into the repo, two lines had been cut, and it restored them from my screenshot and re-ran the 12 simulated logins.
-- **It was honest about uncertainty.** When Auth0's docs didn't say whether step-up re-asks for a code, it said so and turned the question into a test.
-
-### Where it was wrong, and how I caught it
-- **It claimed plan details it couldn't see.** It can't read hover tooltips on the pricing page, and it suggested I could "always create a second tenant", which the Free plan doesn't allow. I checked the page myself.
-- **It designed a public Studio home page,** which would have broken SSO in one direction. I caught it by re-reading the brief.
-- **It drew a step-up journey that contradicted my locked UI spec.** I compared the two.
-- **It quoted a "fact" about passkeys that a customer had written, not Auth0.** When I asked for proof, it re-checked and corrected the source.
-- **It added a Developer view line that wasn't in my spec.** I caught it in my test checklist.
-- **It lost track of a decision I'd already logged,** and raised it as open for a day before reading my log and correcting itself.
-- **Its test setup made the same wrong assumption as its code,** so the tests passed while the real app failed. It fixed both and showed the corrected tests failing on the old code.
-- **It told me everything in the brief was covered,** before I'd shared the external user store section. And it first recommended a database import mode that the brief's wording rules out, then withdrew it.
 
 ### What I kept for myself
 Every decision in this README is mine: the scenario, the users, what to build and what to defer, and every trade-off. I verified Auth0 claims against the docs and my own dashboard, ran every test myself, and wrote my decision, friction and work logs. My rules for working with AI: ask for sources, check them, turn uncertainty into a test, never paste secrets, and log both what worked and what didn't.
