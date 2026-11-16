@@ -63,166 +63,180 @@ The brief needed two apps sharing one login: a low-risk Baseline App and a Sensi
 4. **There's a real benchmark to design against.** Patreon's 5-day payout lock is a proven mitigation, so I adopted it (the payout hold) rather than inventing my own.
    
 ---
-
 ## 2. Users, assumptions and scope
 
 ### Users
-I used one rule to decide who's in scope: **a user type earns a spot only if it changes the authentication design the brief asks for.**
+I used one rule to decide who's in scope: **a user type earns a spot only if it changes how login and step-up need to work.**
 
-**Primary user: the artist.** They sign up on their own, spend most of their time in Studio managing artworks and sales, and occasionally visit Payouts. Their needs pull in two directions: everyday work should be fast, with one login across both apps, while their money should be hard to touch for anyone but them. They're the only person who goes through every flow in the brief: login, SSO and step-up.
+**The artist (primary user)**
+An independent artist who signs up on their own. They spend most of their time in Vermilion Studio, managing artworks and checking sales, and visit Vermilion Payouts now and then to check their earnings. They need two things that pull in opposite directions:
+- **Everyday work should be fast:** one login, and moving between the two apps without logging in again.
+- **Their money should be hard to touch** for anyone but them.
 
-**Anti-persona: an attacker holding the artist's session.** They have stolen cookies, and possibly the artist's password, phished or reused from another site. They can browse anything the artist can. Their goal is to change the payout account.
+The artist is the only user who goes through every flow in the brief: login, SSO and step-up.
 
-**Out of scope:**
-- **Buyers and collectors** use a storefront, not Studio or Payouts.
-- **Studio assistants** would upload art without touching payouts. That's a roles-and-permissions problem (authorization, not authentication)
-- **Vermilion staff** would need a separate admin app with a stricter login.
+**The attacker (anti-persona)**
+Someone who has stolen the artist's session cookies, for example with malware, and possibly their password too. With those, they can browse both apps as the artist. What they want is to change the payout account, so the next payout goes to them. Designing against this person shaped how step-up works.
+
+**Users I left out**
+
+| User | Why they're out |
+|---|---|
+| Buyers and collectors | They shop in a storefront, not in Studio or Payouts |
+| Studio assistants | They'd upload art without touching payouts. That's a question of what someone is allowed to do (authorization), not how they log in (authentication) |
+| Vermilion staff | They'd need a separate admin app with a stricter login |
 
 ### Assumptions
-1. **Studio is low-risk.** It shows artworks, views and sales. Nothing in it moves money or changes security settings. If it ever did, that action would move to Payouts or get its own step-up.
-2. **Payouts is "sensitive" because of one operation, not every screen.** Viewing earnings and the masked account is read-only; changing the account is the risk.
-3. **The main threat is a stolen session, not just a stolen password.** A second password prompt wouldn't stop session theft; a different factor at the moment of risk does.
-4. **Payout changes are rare,** so asking for a code on every change is acceptable friction.
-5. **Artists have a smartphone** and can use an authenticator app.
-6. **Sign-up is the one moment we're sure it's really the artist,** because they just created their credentials.
-7. **Some artists' devices can't use passkeys,** so passwords stay available.
-8. **Payouts go out weekly.**
-9. **This is a demo environment:** `localhost`, test accounts, and a free Auth0 tenant on its trial.
+Each assumption shaped a specific part of the design.
+
+| # | Assumption | What it changed in the design |
+|---|---|---|
+| 1 | **Studio is low-risk.** It shows artworks and sales. Nothing in it moves money or changes security settings | One login is enough for Studio, with no extra proof. If Studio ever gained a risky action, that action would get its own step-up |
+| 2 | **Payouts is sensitive because of one action, not every screen.** Viewing earnings and the masked account is read-only | No extra proof to open Payouts. Step-up happens only on "Change payout account" |
+| 3 | **The main threat is a stolen session.** Malware that steals cookies often takes saved passwords too | Asking for the password again isn't enough. Step-up asks for a code from the artist's phone, which the malware doesn't have |
+| 4 | **Payout changes are rare** | Asking for a fresh code on every change is acceptable friction |
+| 5 | **Artists have a smartphone** | An authenticator app works as the step-up factor |
+| 6 | **At sign-up, the person creating the account really is the artist.** Later on, the person clicking might be someone holding a stolen session | The authenticator is set up at sign-up, and never offered during step-up |
+| 7 | **Some artists' devices can't use passkeys** | Passwords stay available alongside passkeys |
+| 8 | **Payouts go out weekly** | The 5-day payout hold is shown against a real next-payout date |
 
 ### Goals
-**From the brief:**
+**What the brief requires:**
 - Artists can log in with a passkey **or** a password.
-- Moving between Studio and Payouts never asks them to log in again (SSO, both directions).
-- Changing the payout account requires a step-up challenge, even with an active session, using any MFA factor except email.
+- Moving between Studio and Payouts, in either direction, never asks them to log in again (SSO).
+- Changing the payout account needs extra verification (step-up), even when the artist is already logged in, using any MFA method except email.
 
-**Product principles I held myself to:**
-- **Extra proof at the moment of risk, not at the door.** One login gets you in; money needs fresh proof.
-- **The server is the bouncer.** Buttons and dialogs are just screens; the real check happens on the server when the change is saved.
-- **Never hand the enrollment screen to someone we can't confirm.** MFA setup happens at sign-up, never at step-up.
-- **Make it visible.** A Developer view in each app shows how you logged in and when, so SSO and step-up can be seen, not just claimed.
+**The principles I held myself to:**
+- **Ask for extra proof at the moment of risk, not at the door.** One login gets you into both apps; changing where money goes needs fresh proof.
+- **The server makes the final check.** Buttons and dialogs only guide the artist. The real check happens on the server when the change is saved, so skipping the screens doesn't help an attacker.
+- **Only set up MFA when we know it's the artist.** That means at sign-up, never in the middle of a step-up, where an attacker could register their own phone.
+- **Make the invisible visible.** A Developer view in each app shows how you logged in and when, so SSO and step-up can be seen in the demo, not just claimed.
 
-### Out of scope (non-goals)
-- A recovery flow for artists who lose their passkey.
-- Logging out of both apps at once.
-- Roles and delegated access.
-- Requiring a verified email before payout changes.
-- Production hosting, custom domains and real payments.
+### What I didn't build (non-goals)
+- Account recovery for an artist who loses their passkey
+- Logging out of both apps at once
+- Roles, so an assistant could work in Studio without touching money
+- Requiring a verified email before payout changes
+- Email alerts when the payout account changes
+- Letting artists add or remove their own sign-in methods
+- Production hosting, custom domains and real payments
 
 ---
 
 ## 3. What I built
 
-| Component | What it is | Role |
-|---|---|---|
-| **Vermilion Studio** | Express app, `localhost:3000` | Baseline App: artworks, sales, one login |
-| **Vermilion Payouts** | Express app, `localhost:3001` | Sensitive App: earnings, payout account, step-up on change |
-| **Auth0 tenant** | Universal Login; one database connection with passkeys and passwords; authenticator-app MFA | Identity for both apps, and the SSO session between them |
-| **Login rules (Auth0 Action)** | One post-login Action | Every MFA decision, in one place |
-| **Testing** | A 45-case manual test plan; run during development | Evidence that the flows, and the attacks on them, behave as designed |
+Vermilion is made up of five pieces that work together.
+
+**Vermilion Studio** is the Baseline App. It's a small Express web app that runs at `localhost:3000`, where artists see their artworks and recent sales. It only needs one login, and it never asks for extra proof, because nothing in it can move money.
+
+**Vermilion Payouts** is the Sensitive App. It's a second Express web app, at `localhost:3001`, where artists see their next payout and the account it's paid to. It's the only place that asks for extra proof (step-up), and only when the artist tries to change the payout account.
+
+**The Auth0 tenant** handles identity for both apps. Both apps use Auth0's hosted login page (Universal Login), one user database that supports both passkeys and passwords, and an authenticator app as the second factor. Auth0's own session is what lets an artist move between the two apps without logging in again (SSO).
+
+**The login rules** are a single Auth0 Action that runs after every login, for both apps. Every MFA decision lives here: when to ask an artist to set up their authenticator, when to require a code, and when to refuse.
+
+**The test plan** is 45 test cases covering every flow in the brief, and the attacks against it. 
 
 ### How I worked
-I treated this like a small product build rather than a coding exercise:
-1. **Research:** what makes an app "baseline" or "sensitive", when SSO and MFA belong together, and how passwords and passkeys compare. I also checked that a free Auth0 tenant covers the brief.
-2. **Users:** who uses these apps, and who attacks them.
-3. **User states:** every situation an artist or attacker can be in, prioritized.
-4. **Journeys:** what happens, screen by screen, in each state that matters.
-5. **UI spec:** what each screen shows, locked before writing code.
-6. **Build:** Studio first, then Payouts.
-7. **Test:** A test plan, then fixes for what testing found.
+I treated this like a small product build rather than a coding exercise, and worked in this order:
 
-Throughout, I kept four logs: a **work log** (every step), a **decision log** (each decision with the options, the trade-off, and what would change my mind), a **friction log** (everywhere Auth0 or its docs slowed me down), and an **AI usage log** (what I asked, what I got, and whether it was right).
+1. **Research.** I looked at what makes an app "baseline" or "sensitive", when SSO and MFA belong together, and how passwords and passkeys compare. I also checked that a free Auth0 tenant covers everything the brief asks for.
+2. **Users.** I decided who uses these apps, and who would attack them.
+3. **User states.** I listed every situation an artist or an attacker can be in, and prioritized them.
+4. **Journeys.** For each state that mattered, I wrote down what happens, screen by screen.
+5. **UI spec.** I wrote down exactly what each screen shows, and locked it before writing any code.
+6. **Build.** I built Studio first, end to end, and then Payouts and integrated them as required.
+7. **Test.** I wrote a test plan, ran it, and fixed what it found.
+
+Throughout the project, I kept four logs:
+- a **work log** of every step I took
+- a **decision log** with each decision, the options I considered, the trade-off, what would change my mind and what i would do better in production.
+- a **friction log** of everywhere Auth0 or its documentation slowed me down
+- an **AI usage log** of what I asked AI tools, what I got back, and whether it was right
 
 ### User states
-I started by mapping 25 states across five groups: logging into Studio, getting into Payouts, using the sensitive action, leaving, and attacking. I gave each a priority, then refined the list into **18 states** to design in detail. 16 of them are built into the apps; 2 were inputs to decisions rather than features.
+A user state is a situation someone can be in when they arrive at an app: for example, logged into one app but not the other, or already verified for a payout change. Listing them is how I made sure every path had a designed answer, not just the happy path.
 
-| # | State | What happens |
+I started with 25 states across five groups: logging into Studio, getting into Payouts, using the sensitive action, leaving, and attacking. I gave each one a priority, merged the ones that behaved the same way, and ended up with **18 states** to design in detail.
+
+| # | Situation | What happens |
 |---|---|---|
 | **Getting in** | | |
-| 1 | New artist, no account | Signs up on Auth0's page with a password or a passkey, sets up an authenticator app, lands in the app |
-| 2 | Returning artist, no session anywhere | Sent to Auth0's login page, logs in, lands on the dashboard |
-| 3 | Returning artist with a passkey | Chooses "Continue with a passkey", confirms with fingerprint or face, lands in the app |
-| 4 | Logged into Payouts, opens Studio | SSO: no login screen, Studio creates its own session |
-| 5 | Opens Payouts first, no session anywhere | Sent to Auth0's login page, then to Payouts |
-| 6 | Logged into Studio, opens Payouts | SSO: no login screen, Payouts creates its own session |
-| **The sensitive action** | | |
-| 7 | MFA set up, no recent proof | Fresh code, then the change is allowed |
-| 8 | Started verification, then cancelled or failed | Nothing changes, the artist stays logged in, and can try again |
-| 9 | Already did MFA earlier (at sign-up, or a previous change) | Gets no free pass: a fresh code every time, but never the password again |
-| 10 | Verified minutes ago, changes the account again | Asked again, because each verification covers one change |
-| 11 | Never set up MFA | Prevented at sign-up, and asked again on the next real login if skipped. If an account still has no factor, payout changes are blocked, and step-up never offers setup |
-| 12 | Logged in with a passkey | Same code step-up as password users |
+| 1 | A new artist, with no account yet | They sign up on Auth0's page with a password or a passkey. Before reaching the app, they set up an authenticator app by scanning a QR code. Then they land in whichever app they started from. |
+| 2 | A returning artist, not logged in anywhere | The app sends them to Auth0's login page. They log in and land on the app's dashboard. |
+| 3 | A returning artist who uses a passkey | On Auth0's page, they choose "Continue with a passkey" and confirm with their fingerprint or face. They land in the app, with no password and no code. |
+| 4 | Logged into Payouts, then opens Studio | There's no login screen. Studio asks Auth0, Auth0 recognizes the artist, and Studio starts its own session. This is SSO. |
+| 5 | Opens Payouts first, not logged in anywhere | Payouts sends them to the same Auth0 login page Studio uses. After logging in, they land on the Payouts dashboard. |
+| 6 | Logged into Studio, then opens Payouts | There's no login screen. Payouts asks Auth0, Auth0 recognizes the artist, and Payouts starts its own session. |
+| **Changing the payout account** | | |
+| 7 | Has an authenticator, and hasn't verified recently | Payouts asks for a fresh 6-digit code. Once the code is accepted, the artist can make the change. |
+| 8 | Started verifying, then cancelled or got the code wrong | Nothing changes. The artist stays logged in, and can try again whenever they want. |
+| 9 | Already did MFA earlier in the session, at sign-up or for a previous change | Earlier MFA gives no free pass. Every payout change asks for a fresh
+| 10 | Verified a few minutes ago, and wants to change the account again | Asked for a new code. Each verification covers exactly one change. |
+| 11 | Never set up an authenticator | Prevented by design: setup is part of sign-up. If the artist skips it, they're asked again the next time they actually log in. If an account still has no authenticator, payout changes are blocked, and step-up never offers setup. |
+| 12 | Logged in with a passkey | Passkey users get the same code step-up as password users. Logging in with a passkey doesn't skip it. |
 | **Leaving** | | |
-| 13 | Logs out of either app | Ends that app's session and Auth0's, then lands on that app's own Signed out page |
+| 13 | Logs out of either app | That app's session and Auth0's session both end, and the artist lands on that app's own signed-out page. |
 | **Attackers** | | |
-| 14 | Stole all of the artist's cookies | Can browse both apps, but is blocked at the code |
-| 15 | Stole cookies from an artist with no MFA | Blocked, with no setup offered |
-| 16 | Skips the button: opens the form directly, or sends Save without verifying | The server refuses; "the check is on Save" |
-| 17 | Has the artist's password | *Decision input:* can log in, but step-up blocks the change |
-| 18 | Phishes a code in real time | *Decision input:* authenticator codes can be relayed by a fake site |
-
-**States I deliberately didn't build as separate flows:**
-
-| State | Why |
-|---|---|
-| Studio session still active | The SDK lets the artist straight in; nothing to design |
-| Studio session expired, Auth0 session still alive | SSO handles it (same as states 4 and 6) |
-| Wrong or forgotten password | Auth0's hosted page handles the error and the reset email |
-| Auth0 session expired, Payouts never opened | A normal login (state 5) |
-| Walks away, browser left open | Sessions expire by default. Testing later showed that wasn't strict enough for Payouts |
-| Cookies stolen right after step-up | Contained by design: each verification works once, within 10 minutes |
-| Cookies stolen, then the artist logs out | The copied app cookie still works until it expires (a production item), but step-up still blocks payout changes |
-| Push-notification fatigue | Doesn't apply: I didn't use push |
+| 14 | Stole all of the artist's cookies | They can browse both apps as the artist. When they try to change the payout account, they're asked for a code from the artist's phone, and they're stuck. |
+| 15 | Stole the cookies of an artist who has no authenticator | Blocked. Step-up never offers "set up MFA now", so an attacker can't register their own phone. |
+| 16 | Skips the button: opens the change form's address directly, or sends the Save request without verifying | The server refuses, because it checks for a valid verification when the form opens and again when Save is submitted. |
+| 17 | Has the artist's password (phished, or reused from another site) | *Not built; used as a decision input.* They can log in, but step-up still blocks the payout change. This is why passkeys are offered alongside passwords: a passkey has no password to steal. |
+| 18 | Tricks the artist into typing a code on a fake site, and relays it in real time | *Not built; used as a decision input.* Authenticator codes can be relayed this way; passkeys and security keys can't. This is why every change starts a 5-day payout hold, and why I'd use security keys in production. |
 
 ### Key journeys
-**Sign-up.** The artist opens Studio (or Payouts) and is sent to Auth0's page, which asks for an email first. They create a password or a passkey, then set up an authenticator app by scanning a QR code and confirming one code. Then they land in the app. If they abandon the QR screen, they're asked again on their next real login, until setup is done.
 
-**SSO, both directions.** The artist clicks Go to Payouts (or Back to Studio). There's a brief flash and no login screen: the other app finds no session of its own, asks Auth0, and Auth0 recognizes its own session. Both Developer views show the same "Logged in at", which is the proof that no second login happened.
+**Signing up.** The artist opens Studio (or Payouts) and is sent to Auth0's page, which asks for their email first. They create a password or a passkey. Before they reach the app, Auth0 asks them to set up two-step verification: they scan a QR code with an authenticator app and type one code to confirm it works. Then they land in the app, logged in. If they close the page at the QR step, they're asked to finish setup the next time they log in, until it's done.
+
+**Logging in.** Auth0's page shows an email box and a "Continue with a passkey" button. An artist with a passkey confirms with their fingerprint or face; an artist with a password types it after their email. Neither is asked for a code at login.
+
+**Moving between the apps (SSO).** The artist clicks Go to Payouts in Studio, or Back to Studio in Payouts. The screen flashes briefly, and the other app opens with no login screen. Behind the scenes, the app has no session of its own yet, so it asks Auth0, and Auth0 recognizes its own session and confirms who the artist is. Both apps' Developer views then show the same "Logged in at" time, which proves no second login happened.
 
 **Changing the payout account (step-up).**
-1. The artist clicks Change payout account. The server finds no unused verification, so a dialog explains that this needs extra verification.
-2. They click Continue. Auth0 asks only for the 6-digit code: no password, no email option, no "remember this browser".
-3. The change form opens. On Save, the server checks the verification again, saves the new account, and marks the verification used.
-4. The success page confirms the change and shows when payouts resume. Back on the dashboard, the next payout shows "On hold until…" with a "Not you? Contact support" note.
+1. The artist clicks Change payout account. The server checks for an unused verification from the last 10 minutes, finds none, and shows a dialog explaining that this change needs extra verification.
+2. They click Continue. Auth0 asks for the 6-digit code from their authenticator app, and nothing else: no password, no email option, and no "remember this browser" checkbox.
+3. The change form opens. It shows when they verified, with hints under the fields: 9 digits for the routing number and 12 for the account number.
+4. They click Save. The server checks the verification again, saves the new account, and marks the verification as used, so it can't be reused.
+5. A success page confirms the new account's last four digits. Back on the dashboard, the next payout shows "On hold until…" with the date it was originally scheduled for, and a "Not you? Contact support" note.
 
-**When things go wrong.**
-- **Cancelled or failed code:** "Verification wasn't completed. Your payout account wasn't changed." The artist stays logged in.
-- **No authenticator on the account:** "Please contact support", with no setup offered.
-- **Verification expired or already used at Save:** "Your verification expired. Please verify again."
+**When step-up doesn't succeed.** The artist always stays logged in, and sees one of three messages, depending on what happened:
+- **They cancelled, or the code failed:** "Verification wasn't completed. Your payout account wasn't changed." They can try again.
+- **Their account has no authenticator:** they're asked to contact support. Step-up never offers setup.
+- **Their verification expired or was already used by the time they clicked Save:** "Your verification expired. Please verify again."
 
-**Leaving.** Logging out ends that app's session and Auth0's, and lands on that app's own Signed out page. The other app stays viewable until its own session expires, but a payout change there needs a full login plus the code. Payouts also asks for a password or passkey again after 15 minutes of inactivity.
+**Leaving.** Logging out of either app ends that app's session and Auth0's session, and lands on that app's own signed-out page. The other app stays open until its own session expires, but a payout change there would need a full login plus the code. Payouts also locks itself after 15 minutes without activity, and asks for the password or passkey again.
 
 ### UI spec
-I wrote and locked the UI spec for both apps before building, so the code had a clear target and any deviation would be visible.
+I wrote the UI spec for both apps and locked it before building, so the code had a clear target and any difference from the plan would be easy to spot.
 
 **Vermilion Studio** (Baseline App)
-- Header: "Vermilion Studio", "Signed in as …", Go to Payouts, Log out
-- The artist's artworks, and a short Recent sales list
-- A collapsible **Developer view:** how you logged in, when, and step-up status (always "not done yet" in Studio)
-- A public Signed out page (Log in / Sign up), and a friendly public error page
+- The header shows "Vermilion Studio" on the left, and "Signed in as …", Go to Payouts and Log out on the right. "Signed in as" shows the part of the email before the @, to keep personal data off the screen.
+- The page shows the artist's artworks, and a short list of recent sales: which artwork sold, for how much, and when.
+- A collapsible Developer view shows how the artist logged in (password or passkey), when, and the step-up status, which is always "not done yet" in Studio, because step-up only happens in Payouts.
+- A public signed-out page shows "Vermilion Studio" with Log in and Sign up buttons. A public error page explains if a login goes wrong, without showing any code details.
 
 **Vermilion Payouts** (Sensitive App)
-- A visibly different look (a vermilion header), so the switch between apps is obvious in a demo
-- Next payout amount and date (weekly, on Mondays). After a change, this shows "On hold until …", "Was scheduled for …", and the "Not you? Contact support" note
-- The payout account, masked to the last four digits
-- **Change payout account**, the sensitive button, which opens a dialog explaining the extra verification
-- The change form: account holder, routing number, and account number (masked)
-- Four result messages: success (with the hold), verification not completed, no authenticator set up, and expired or already used
-- A **Developer view:** how you logged in, when, and the step-up status
-- Its own public Signed out page ("You're signed out of Payouts"), and a friendly public error page
+- It has a visibly different look, with a vermilion header, so it's obvious in a demo that you've switched apps. The header shows "Vermilion Payouts", "Signed in as …", Back to Studio and Log out.
+- It shows the next payout amount and its date. Payouts go out weekly, on Mondays. After a payout account change, the date reads "On hold until …", with "Was scheduled for …" underneath, and a note saying when the account was changed, followed by "Not you? Contact support."
+- It shows the payout account, masked to the last four digits.
+- The Change payout account button is the sensitive action. Clicking it opens a dialog explaining that the change needs extra verification. The dialog also mentions that Auth0's next screen has no Cancel button, so to back out, the artist uses the browser's Back button.
+- After verification, the change form asks for the account holder, the routing number and the account number (masked), with Save and Cancel buttons. Cancel returns to the dashboard and throws the verification away, so the next change asks again.
+- After Save, the artist sees one of four messages: success (with the payout hold), verification not completed, no authenticator set up, or verification expired or already used.
+- A collapsible Developer view shows how the artist logged in, when, and exactly where their step-up verification stands: not done yet, done and unused (with when it expires), used for a payout change (and when), thrown away with Cancel (and when), or expired before it was used.
+- Payouts has its own public signed-out page ("You're signed out of Payouts", with Log in and Back to Studio buttons), and its own public error page.
 
 ### What testing changed
-My first full run of the test plan surfaced one real defect and about a dozen product questions. From those, I built:
-- **A 15-minute idle lock on Payouts.** Both apps were still logged in after an hour of no activity. Payouts now asks for a password or passkey again after 15 minutes, in a way SSO can't quietly bypass. Studio is unchanged.
-- **The verification's lifecycle in the Developer view:** when it was used for a change, or thrown away by Cancel, not just "not done yet".
+My first run of the test plan found one real defect and raised about a dozen product questions. From those, I built four changes:
+- **A 15-minute idle lock on Payouts.** Both apps stayed logged in after an hour of no activity, which is too relaxed for the app that controls money. Payouts now asks for a password or passkey again after 15 minutes without activity, in a way SSO can't quietly skip. Studio is unchanged.
+- **The verification's full history in the Developer view.** Before, it only showed "not done yet" or "used". Now it also shows when a verification was used for a change, and when it was thrown away with Cancel.
 - **A note in the step-up dialog** pointing to the browser's Back button, because Auth0's code screen has no Cancel link.
-
-The defect itself: the payout hold was missing on my machine. The code was right, but an older copy of the file had been saved over it. Re-testing after restoring it passed.
+- **Hints under the form fields,** showing that the routing number is 9 digits and the account number is 12, matching what the server accepts.
 
 ---
 
 ## 4. Key decisions
 
-Where the brief was open-ended, this is what I chose and why. The full reasoning, the options considered and what would change my mind are in my decision log.
+Where the brief was open-ended, this is what I chose and why. The full reasoning, the options considered.
 
 ### Scenario and users
 - **A creator marketplace, with "change payout account" as the sensitive operation.** It's a real attack pattern (payout redirection), and the two apps genuinely differ in risk. See section 1.
@@ -241,8 +255,7 @@ Where the brief was open-ended, this is what I chose and why. The full reasoning
 
 ### Step-up
 - **Auth0's documented step-up pattern.** Payouts asks Auth0 for MFA with a standard OpenID Connect request (`acr_values`), my Action requires the code, and Payouts checks the signed ID token.
-- **Payouts only counts a step-up when the token answers its own request,** and records its own time. Setting up the authenticator at sign-up already marks the session as "MFA done", so the token alone isn't proof.
-- **A fresh code every time, with no "remember this browser".** Even if MFA happened earlier in the session. Auth0's docs don't say plainly whether it re-asks, so I made it a test, and it does.
+- **A fresh code every time.** Even if MFA happened earlier in the session, to change payout account, you need to provide one time code at every attempt to change.
 - **One change per verification, within 10 minutes.** Single-use leaves nothing for a stolen session to ride. Cancel throws the verification away.
 - **The server checks the verification when the form opens *and* when Save is submitted.** Buttons and dialogs can be skipped; the server can't.
 - **Passkey users still step up.** A passkey protects the login, not the session cookie afterwards, and Auth0 doesn't treat a passkey as an independent MFA factor.
