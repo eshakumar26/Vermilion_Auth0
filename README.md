@@ -390,5 +390,14 @@ I used Claude as a working partner for research, design reviews, code, tests and
 
 ---
 
+## 8. Bonus Question
+I explored the first prompt (A) of bonus section.
+
+Once the required flows were done and tested, I asked what an artist would want on their phone. The answer wasn't another dashboard. It was the money. So I designed Vermilion Pocket, a small iPhone app with one sensitive operation: "Get paid now", which sends an artist's available balance to their bank instantly instead of waiting for the Monday payout.
+
+On the web, the authenticator code works because it comes from a different device. On a phone, that code lives on the same device as the app, so it stops being independent. I chose Face ID through WebAuthn with device biometrics. It's phishing-resistant, there's nothing extra to carry, and the artist's face never leaves the phone. I designed money rules so that even a beaten Face ID gains an attacker nothing: instant pay only goes to a bank account that has been on file for 5+ days, it pauses during the payout hold, and it has a daily cap and a "Not you?" alert. 
+
+
+
 
 
